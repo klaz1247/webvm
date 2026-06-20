@@ -1,0 +1,57 @@
+FROM --platform=linux/386 docker.io/i386/debian:buster
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Point APT to the archived mirrors (Buster is EOL)
+RUN echo "deb [trusted=yes] http://archive.debian.org/debian buster main contrib non-free" \
+  > /etc/apt/sources.list && \
+	echo "deb [trusted=yes] http://archive.debian.org/debian-security buster/updates main" \
+	>> /etc/apt/sources.list
+
+# ===== Core build tools =====
+RUN apt-get clean && apt-get update && apt-get -y upgrade && \
+	apt-get -y install \
+	apt-utils gcc g++ make cmake autoconf automake \
+	libtool pkg-config dpkg-dev git \
+	gdb binutils flex bison \
+	valgrind texinfo gettext patch file ucf \
+	manpages whiptail less curl wget \
+	zip unzip tar dialog \
+	netcat-openbsd ca-certificates strace \
+	xxd hexedit nano vim tree htop ncdu
+
+# ===== Compiler and interpreter languages =====
+RUN apt-get -y install \
+	python3 python3-pip python3-setuptools \
+	nodejs ruby lua5.3 luajit
+
+# ===== Python popular packages =====
+RUN pip3 install --no-cache-dir \
+	flask django requests numpy scipy \
+	pandas sympy pytest mypy black \
+	pyyaml toml pyjwt
+
+# ===== Clean up apt cache to maximize free space =====
+RUN apt-get clean && \
+	rm -rf /var/lib/apt/lists/* && \
+	rm -rf /var/cache/apt/* && \
+	rm -rf /var/lib/dpkg/cache/* && \
+	rm -rf /usr/share/doc /usr/share/man && \
+	rm -rf /tmp/* && \
+	rm -rf /var/log/apt/*
+
+# ===== Prepare user =====
+RUN useradd -m user && echo "user:password" | chpasswd
+
+# Copy examples directory
+COPY --chown=user:user ./examples /home/user/examples
+RUN chmod -R +x /home/user/examples/lua
+
+# ===== Configuration =====
+WORKDIR /home/user/
+ENV HOME="/home/user" TERM="xterm" USER="user" SHELL="/bin/bash" EDITOR="vim" LANG="C.UTF-8"
+
+# Root password
+RUN echo 'root:password' | chpasswd
+
+# Default command
+CMD [ "/bin/bash" ]
